@@ -1,0 +1,104 @@
+---
+title: "ASM_Homerwork_Ex2"
+author: "Jamie Arjona Martinez"
+date: "September 23, 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r imports}
+library(tidyverse)
+library(pastecs)
+
+```
+
+#ASM
+
+## Exercice 2: Perform the analysis of the CPU time data set that appears at the end of the slides Mirisession2.pdf. Follow the steps of the data analysis stablished as a guidelines.
+
+Seven programs were monitored to observe their resource demands. In particular, the number of disk I/=’s, menory size (in Kilobytes), and CPU time (in milliseconds) were observed. One is interested in modelling CPU time (Y ) as a function of the other two.
+
+```{r cars}
+cpu_time <- c(2,5,7,9,10,13,20)
+disk <- c(14,16,27,42,39,50,83)
+memory_size <- c(70,75,144,190,210,235,400)
+data <- data.frame("CPU_TIME" = cpu_time, "DISK" = disk, "MEMORY_SIZE"=memory_size)
+```
+
+### Exploratory data analysis
+```{r eda}
+#Small data set, we can show the whole data
+data
+
+#column types
+sapply(data, class)
+
+#Descriptive statistics
+summary(data)
+round(stat.desc(data),2)
+```
+
+The size of our data sample is of 7 observations and 3 variables. The dependen variable is CPU_TIME while the independent are DISK i/o and MEMORY_SIZE. It is observed that the units of measure of MEMORY_SIZE is bigger than the other variables and maybe it is worth using normalized data in order to do the modelling, also we observe a discrepance in the range and variance etween the variables.
+It is important to note that there are no missing values or NA, so imputations or missing data treatments are not needed.
+
+```{r zscores}
+#Normalizing the data
+(means <-apply(data, 2, mean))
+(sds <- apply(data, 2, sd))
+(standardized_data <- as.data.frame(apply(data, 2, function(x) (x-mean(x))/sd(x))))
+
+round(stat.desc(standardized_data),2)
+```
+
+With normalized data the units of measure of the variables behave similar and will be easier to detect outliers.
+
+#### Plotting
+Boxplots can help to visualize and detect outliers.
+
+```{r plots_no_standardized}
+#Boxplot
+boxplot(data[, 2:3])
+#outlier detected
+data[data$MEMORY_SIZE>300,]
+```
+
+```{r plots_standardized}
+#Boxplot
+boxplot(standardized_data[, 2:3])
+#outlier detected
+standardized_data[standardized_data$MEMORY_SIZE>1.5,]
+```
+
+Clearly the program number 7 used more disk and memory that was expected and will have an impact in the modelling. As we don't know the reasons because the program number 7 got this values (computer problems? algorithm behaviour?) we will perform the analysis with and without the program number 7 and see the differences.
+
+```{r remove_7}
+data_no_outliers <- data %>% filter(MEMORY_SIZE<300)
+standardized_data_no_outliers <- standardized_data %>% filter(MEMORY_SIZE<1.5)
+#Boxplot
+boxplot(data_no_outliers[, 2:3])
+boxplot(standardized_data_no_outliers[, 2:3])
+```
+Without the program number 7 it seems that we have the data in reasonable ranges.
+Next we are going to do the scatterplot of the data.
+
+```{r}
+ggplot(data = data) +
+  geom_point(mapping = aes(x = DISK, y =cpu_time))
+
+ggplot(data = data) +
+  geom_point(mapping = aes(x = memory_size, y =cpu_time))
+```
+From the scatterplots it is reasonable to expect linear behaviours and so a linear model will fit into the data.
+
+### Hypothesis
+
+### Model
+
+### Testing the hypothesis using the model
+
+### Parameter interpretation
+
+### Answers and Final comments
