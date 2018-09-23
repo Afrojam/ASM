@@ -1,0 +1,94 @@
+---
+title: "practical_session"
+author: "Jamie Arjona"
+date: "17 de septiembre de 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
+library(tidyverse)
+```
+
+
+```{r cars}
+data <- read.csv("FIFADataset.csv")
+subdata <- select(data, Name, Agility, Acceleration, Club)
+subdata <- filter(subdata, Club == "Real Madrid CF" | Club =="FC Barcelona" | Club =="FC Bayern Munich")
+head(subdata)
+```
+## Factors to numerical
+```{r}
+subdata$Agility <- as.numeric(subdata$Agility)
+subdata$Acceleration <- as.numeric(subdata$Acceleration)
+```
+
+
+## EdA
+
+```{r pressure, echo=FALSE}
+boxplot(subdata, agility, acceleration)
+cor(subdata$Acceleration, subdata$Agility)
+```
+
+Linear regression model
+```{r}
+mod1 <- lm(Acceleration ~ Agility, subdata)
+mod2 <- lm(Agility ~ Acceleration, subdata)
+summary(mod1)
+summary(mod2)
+```
+```{r}
+#Calculating the B_1: B_1 = cov(x,y) / var(x)
+cov(subdata$Agility, subdata$Acceleration)/var(subdata$Agility)
+```
+
+R^2 tells you how good is the model. Adjusted R^2 penalizes the number of coefficients.
+### Residuals information
+Assumptions: follow a normal with mu = 0 and sd dev = sd dev (normally distributed), independent.
+How are the residuals compute?
+Solving the normal equations.
+If residuals are standarized, we will have them between -1.96 and 1.96 (99% of them).
+
+```{r}
+par(mfrow = c(2,2))
+plot(mod1)
+```
+
+## ANOVA
+```{r}
+anova(mod1)
+anova(mod2)
+```
+
+## Exercise 3: Analyze the FIFA dataset modeling the Acceleration as a function of: agility, sprint.speed, reactins and balance.
+
+```{r}
+head(data)
+
+subdata <- select(data, Club, Name, Agility, Sprint.speed, Reactions, Balance, Acceleration)
+subdata <- filter(subdata, Club == "Real Madrid CF" | Club =="FC Barcelona" | Club =="Manchester City")
+head(subdata)
+```
+
+Casting values to numerical data where it is necessary
+```{r}
+subdata = subdata %>%  mutate(Agility=as.numeric(Agility), Sprint.speed = as.numeric(Sprint.speed), Reactions = as.numeric(Reactions), Balance = as.numeric(Balance),  Acceleration = as.numeric(Acceleration))
+
+
+```
+
+Creating the linear model
+```{r}
+mod3 <- lm(Acceleration ~ Agility + Sprint.speed + Reactions + Balance, subdata)
+summary(mod3)
+```
+
