@@ -1,0 +1,199 @@
+---
+title: "ASM_Homework_Ex3"
+output: pdf_document
+---
+
+```{r}
+#Loading necessary packages
+library(car)
+library(pastecs)
+#library(kableExtra)
+#library(tinytex)
+library(carData)
+
+```
+
+```{r}
+#Loading the data
+data <- read.csv("FIFADataset.csv", header = TRUE)
+
+#Filtering the 3 clubs of interest and the necessary variables for the analysis
+fc <- data[ data$Club %in% c('Manchester City','Real Madrid CF', 'FC Barcelona'),
+            c('Name', 'Agility', 'Acceleration', 'Club', 'Sprint.speed', 'Reactions', 'Balance') ]
+
+#Showing first rows of the data
+head(fc)
+```
+# Description of the Dataset
+
+As it can be seen in the table the data consists of different football players from the FIFA Dataset obtained by Kaggle. This analysis covers only players from the three clubs "Manchester City", "FC Barcelona" and "Real Madrid CF". The following variables are relevant:
+
+* Name: factor, contains the name of the player
+* Club: factor, contains name of the club to which a player belongs
+* Acceleration: numeric, theoretical range: 1-100
+* Agility: numeric, theoretical range: 1-100
+* Sprint.speed: numeric, theoretical range: 1-100
+* Reactions: numeric, theoretical range: 1-100
+* Balance: numeric, theoretical range: 1-100
+
+A more in detail discussion of the variables can be find in the Univariate Descriptive Analysis section.
+
+# Data Cleansing
+```{r}
+#checking levels
+sapply(fc, class)
+
+#looking at the different variables which should be numerical
+levels(fc$Acceleration)[fc$Acceleration]
+levels(fc$Agility)[fc$Agility]
+levels(fc$Sprint.speed)[fc$Sprint.speed]
+levels(fc$Reactions)[fc$Reactions]
+levels(fc$Balance)[fc$Balance]
+
+#truncate at the first two digits and convert to numerical
+fc[, 'Acceleration'] <-as.numeric(substr(levels(fc$Acceleration)[fc$Acceleration], 0, 2))
+fc[,'Agility'] <- as.numeric(substr(levels(fc$Agility)[fc$Agility], 0, 2))
+fc[, 'Sprint.speed'] <-as.numeric(substr(levels(fc$Sprint.speed)[fc$Sprint.speed], 0, 2))
+fc[, 'Reactions'] <-as.numeric(substr(levels(fc$Reactions)[fc$Reactions], 0, 2))
+fc[, 'Balance'] <-as.numeric(substr(levels(fc$Balance)[fc$Balance], 0, 2))
+
+#checking levels again
+sapply(fc, class)
+```
+
+After taking a first look at the data, we see that some values do not consist only out of one number but of some additional numbers which should be truncated, so that all rows of the specific columns can be numeric.
+
+# Univariate Descriptive Analysis and Outlier Detection
+
+```{r}
+round(stat.desc(fc[,c('Acceleration', 'Agility', 'Sprint.speed', 'Balance', 'Reactions')], basic = T, desc = T), 2)
+```
+
+By looking at the statistics of the numeric variables we see that there are no missing values (neither NA nor NULL) in the data. All variables are more or less in the same range. Only 'Balance' and 'Reactions' have a slightly higher Minimum. Also the means are all around 71 where 'Balance' has the lowest mean (of 69.68) and 'Reactions' the highest mean (of 75.81). The variance values among the variables are similar with the exception of 'Reactions' which has a much smaller variance of 129. 
+
+```{r}
+boxplot(fc[, c(2, 3, 5, 6, 7)])
+```
+
+It can be seen that there are some outliers in the Acceleration, Sprint.speed and Reactions variables. For futher analysis we will have a closer look on the instances that are smaller than Q1 - 1.5*IQR.
+
+```{r}
+fc[fc$Acceleration < 40, ]
+fc[fc$Sprint.speed < 40, ]
+fc[fc$Reactions < 52, ]
+```
+
+The outliers in the Acceleration variable are all goalkeepers. Being a goalkeeper requests completely different abilities than other playing positions as goalkeepers do not have to run through the entire field. As they are a very special case in the Fifa Dataset it is reasonable to exclude all goalkeepers from the analysis. They play under completely different conditions than the other players. However, other players which have very low values e.g. in Sprint.speed or Reactions are not goalkeepers and although they have values which are much lower than the average ones they should remain in the dataset as they play under equal conditions as the other players. 
+
+```{r}
+pos <- data[data$Club %in% c('Manchester City','Real Madrid CF', 'FC Barcelona'),
+            c('Name', 'Preferred.Positions') ]
+#merge the positions to the dataframe so that it is possible to exclude goalkeepers
+fc_pos <- merge(pos, fc, by="Name")
+
+#noticed that one player (Danilo from Man City) appeared twice in the original dataset -> remove duplicates
+fc_pos <- fc_pos[!duplicated(fc_pos$Name),]
+
+#exclude goalkeepers and remove position variable
+fc <- fc_pos[!(fc_pos$Preferred.Positions %in% 'GK '),]
+fc <- fc[,c(1, 3, 4, 5, 6, 7, 8)]
+
+#Reindex
+rownames(fc) <- 1:nrow(fc)
+```
+
+# Bivariate Descriptive Anaylsis 
+
+```{r}
+# Scatter plots
+par(mfrow = c(2,2))
+plot(fc$Acceleration ~ fc$Agility, ylab = 'Acceleration', xlab='Agility')
+plot(fc$Acceleration ~ fc$Sprint.speed, ylab = 'Acceleration', xlab='Sprint.speed')
+plot(fc$Acceleration ~ fc$Reactions, ylab = 'Acceleration', xlab='Reactions')
+plot(fc$Acceleration ~ fc$Balance, ylab = 'Acceleration', xlab='Balance')
+
+cor(fc[, 'Acceleration'], fc[, 'Agility'])
+cor(fc[, 'Acceleration'], fc[, 'Sprint.speed'])
+cor(fc[, 'Acceleration'], fc[, 'Reactions'])
+cor(fc[, 'Acceleration'], fc[, 'Balance'])
+```
+
+In the scatter plots you can see that some variables are more correlated with Acceleration than others. Agility (cor=0.77) and Sprint.speed (cor=0.90) are highly correlated with Acceleration. On the other side the relation in the scatter plots for Reactions (cor=0.36) and Balance (cor=0.57) with Acceleration are not really good to see and the correlation values are low. On a bivariate level therefore Agility and Sprint.Speed should be better predictors for Acceleration than Reactions and Balance. 
+
+# Hypotheses
+
+After the uni and bivariate analysis of the variables the following hypotheses can be stated: 
+
+* The higher the Agility of a player, the higher the Acceleration.
+* The higher the Sprint.Speed of a player, the higher the Acceleration.
+* The higher the Reactions of a player, the higher the Acceleration.
+* The higher the Balance of a player, the higher the Acceleration.
+* Agility and Sprint.Speed have a higher influence than Reactions and Balance.
+
+# Linear Model
+
+To check the hypotheses a multivariate linear regression will be performed. 
+
+```{r}
+mod <- lm(Acceleration ~ Agility+Sprint.speed+Reactions+Balance, fc)
+summary(mod)
+```
+
+From the multivariate model we can observe that 50% of the **residuals** are in the range between -2.1325 and 1.9745, being this a low error range, BUT, we got a residual with an error of nearly -12, for that player the model over-predicted its agility atribute. In the other hand, we have a residual that under-predicted the agility value by aproximately 9.5391.
+With the values of the **coefficients** and their **p-values** we can say that Agility and Sprint.speed are the variables with high influence in the response variable.
+Because we are in a multivariate case, we see (small) differences in the values of **multiple R-squared** and **adjusted R-squared** being the second the one that is valuable to us because penalizes the complexity of the model (number of coefficients). If we re-do the model taking off the non significant variables, maybe we will see an increase in this statistic.
+The **residual standard error** is 3.572, different than 0, meaning that there's uncertainty in the model. Also we observe that the model have 69 degrees of freedom (n-p-1 = 74-4-1).
+Lastly, we have the **F-Statistic** that indicates the relationship between the response and the predictor variables and indicates which variables are good predictors. In the following ANOVA table we can see te relationship in detail.
+
+```{r}
+anova(mod)
+```
+
+Again we see that Agility and Sprint.speed are the ones that explain better the variance of Acceleration.
+
+### Linear Model hypothesis
+```{r}
+par(mfrow=c(2,2))
+plot(mod)
+```
+We observe that the residuals are not normally distributed, thus indicates that our model is not capable of handle all the uncertaintly in the data with the variables used. The observations 56, 40 and 10 cannot be predicted well with the model and that means that we have heavy tails in the distribution of the residuals.
+
+## Using Agility and Sprint.speed as predictors
+```{r}
+#checking without insignificant variables from first model
+mod2 <- lm(Acceleration ~ Agility+Sprint.speed, fc)
+summary(mod2)
+```
+
+Unexpectedly we got a similar **adjusted R-squared** as the first model (a little smaller value!). Meaning that somehow the not so important variables (Reactions and Balance) has influence in the response variable.
+
+```{r}
+par(mfrow=c(2,2))
+plot(mod2)
+```
+Also this model have similar problems with observations 56, 40 and 10 where their residual values are far from the expected value.
+
+```{r}
+fc[c(56,40,10),]
+mod$fitted.values[c(56,40,10)]
+mod$residuals[c(56,40,10)]
+```
+
+```{r}
+hist(fc$Agility)
+hist(fc$Acceleration)
+hist(fc$Sprint.speed)
+```
+
+The case of Carvajal is strange because it has good agility and sprint.speed but lower Acceleratin than expected.
+In the case of Suarez it has a good Acceleration that cannot be explained with its values on Agility and Sprint.Speed.
+FOr the case of Pique Acceleration would behave similar to Agility but has a good Sprint.Speed that has an effect on over-predicting the Acceleration.
+
+## Parameter Interpretation
+The first model is the one with greater **Adjusted R-squared**, it seems that is the better one. Its formula is Y = 0.27917x_1 + 0.64800x_2 - 0.02584x_3 + 0.08161x_4 + 2.06239 + e meaning that an increase in one point of Acceleration increases in an average:
+0.27917 for Agility, 0.64800 for Sprint.Speed, 0.02584 for Reactions and 0.08161 for Balance.
+
+## Answer hypothesis and Final Comments
+From our analsis we can conclude that Acceleration is linearly related with Agilit and Sprint.Speed in the sample of data of football players that we have. We have seen that a higher Acceleration is related to a high Agility and a high Sprint.Speed but the same does not happens with Reactions and Balance.
+We can conclude that Balance and Reactions have little influence on Acceleration, also seems that reactions have a negative impact on Acceleration.
+Finally we must say that the model is not capable of explaining the variance of Acceleration using those variables and that maybe more variables are needed in order to be able to solve this.
